@@ -1,0 +1,14 @@
+  // >>> screensaver-fx (managed by omarchy-screensaver-fx; edits here are replaced on reinstall)
+  "style.screensaver.effect": {"icon":"󱄄","label":"Effect","title":"Screensaver Effect"},
+  "style.screensaver.effect.random": {"icon":"󰒝","label":"Random","description":"Omarchy default: any effect","checked":"screensaver-fx is random","action":"screensaver-fx random"},
+  "style.screensaver.effect.matrix": {"icon":"󱄄","label":"Matrix","checked":"screensaver-fx is matrix","action":"screensaver-fx set matrix"},
+  "style.screensaver.effect.rain": {"icon":"󱄄","label":"Rain","checked":"screensaver-fx is rain","action":"screensaver-fx set rain"},
+  "style.screensaver.effect.decrypt": {"icon":"󱄄","label":"Decrypt","checked":"screensaver-fx is decrypt","action":"screensaver-fx set decrypt"},
+  "style.screensaver.effect.beams": {"icon":"󱄄","label":"Beams","checked":"screensaver-fx is beams","action":"screensaver-fx set beams"},
+  "style.screensaver.effect.fireworks": {"icon":"󱄄","label":"Fireworks","checked":"screensaver-fx is fireworks","action":"screensaver-fx set fireworks"},
+  "style.screensaver.effect.thunderstorm": {"icon":"󱄄","label":"Thunderstorm","checked":"screensaver-fx is thunderstorm","action":"screensaver-fx set thunderstorm"},
+  "style.screensaver.effect.synthgrid": {"icon":"󱄄","label":"Synthgrid","checked":"screensaver-fx is synthgrid","action":"screensaver-fx set synthgrid"},
+  "style.screensaver.effect.blackhole": {"icon":"󱄄","label":"Blackhole","checked":"screensaver-fx is blackhole","action":"screensaver-fx set blackhole"},
+  "style.screensaver.effect.vhstape": {"icon":"󱄄","label":"VHS Tape","checked":"screensaver-fx is vhstape","action":"screensaver-fx set vhstape"},
+  "style.screensaver.preview": {"icon":"","label":"Preview","action":"omarchy-launch-screensaver force"},
+  // <<< screensaver-fx

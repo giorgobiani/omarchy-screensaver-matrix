@@ -1,0 +1,22 @@
+#!/bin/bash
+# screensaver-fx: ttfx wrapper installed to /usr/local/bin/ttfx.
+#
+# The Omarchy screensaver runs `ttfx --random-effect` on the branding text.
+# When this wrapper sees that call, it limits the random pick to the effects
+# chosen in ~/.config/omarchy/screensaver-fx.conf. Every other ttfx call is
+# passed straight through to the real binary.
+
+REAL_TTFX=/usr/bin/ttfx
+CONFIG="$HOME/.config/omarchy/screensaver-fx.conf"
+
+if [[ " $* " == *" --random-effect "* && "$*" == *"/.config/omarchy/branding/screensaver.txt"* && -r $CONFIG ]]; then
+  EFFECTS=""
+  # shellcheck source=/dev/null
+  source "$CONFIG"
+  read -ra effects <<<"$EFFECTS"
+  if ((${#effects[@]})); then
+    exec "$REAL_TTFX" "$@" --include-effects "${effects[@]}"
+  fi
+fi
+
+exec "$REAL_TTFX" "$@"

@@ -1,0 +1,11 @@
+#!/bin/bash
+# screensaver-fx post-update hook: warn if an Omarchy update changed how the
+# screensaver calls ttfx, which would make the effect choice stop applying.
+
+screensaver=$(command -v omarchy-screensaver || echo /usr/share/omarchy/bin/omarchy-screensaver)
+
+if ! grep -q -- '--random-effect' "$screensaver" || ! grep -q 'branding/screensaver.txt' "$screensaver"; then
+  echo "screensaver-fx: Omarchy changed how the screensaver runs ttfx; your effect choice may no longer apply."
+  omarchy-notification-send -g 󱄄 "Screensaver FX needs a look" \
+    "Omarchy changed how the screensaver runs. Your effect choice may no longer apply." || true
+fi

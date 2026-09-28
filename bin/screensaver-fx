@@ -1,0 +1,81 @@
+#!/bin/bash
+# screensaver-fx: choose which ttfx effects the Omarchy screensaver uses.
+
+set -euo pipefail
+
+CONFIG="$HOME/.config/omarchy/screensaver-fx.conf"
+
+usage() {
+  cat <<EOF
+Usage: screensaver-fx <command>
+
+Commands:
+  show               Show the effects the screensaver currently uses
+  list               List every available effect
+  set <effect>...    Use only these effects (one is picked at random each cycle)
+  random             Go back to Omarchy's default: any effect at random
+  is <effect>...     Exit 0 if exactly these effects are set ("is random" for the default)
+  preview            Launch the screensaver now
+EOF
+}
+
+available_effects() {
+  /usr/bin/ttfx --help | awk '/^Commands:/ {on=1; next} /^$/ {on=0} on && $1 != "help" {print $1}'
+}
+
+write_config() {
+  mkdir -p "$(dirname "$CONFIG")"
+  cat >"$CONFIG" <<EOF
+# Effects the Omarchy screensaver picks from, space-separated.
+# Leave empty for Omarchy's default (any effect at random).
+# Manage with: screensaver-fx set <effect>... | random | list
+EFFECTS="$*"
+EOF
+}
+
+current_effects() {
+  local EFFECTS=""
+  # shellcheck source=/dev/null
+  [[ -r $CONFIG ]] && source "$CONFIG"
+  echo "$EFFECTS"
+}
+
+case "${1:-}" in
+show)
+  effects=$(current_effects)
+  echo "${effects:-random}"
+  ;;
+list)
+  available_effects
+  ;;
+set)
+  shift
+  (($#)) || { echo "Give at least one effect. See: screensaver-fx list" >&2; exit 1; }
+  valid=$(available_effects)
+  for effect in "$@"; do
+    grep -qx "$effect" <<<"$valid" || { echo "Unknown effect: $effect. See: screensaver-fx list" >&2; exit 1; }
+  done
+  write_config "$@"
+  echo "Screensaver effects: $*"
+  ;;
+random)
+  write_config
+  echo "Screensaver effects: random"
+  ;;
+is)
+  shift
+  wanted="$*"
+  [[ $wanted == random ]] && wanted=""
+  [[ "$(current_effects)" == "$wanted" ]]
+  ;;
+preview)
+  omarchy-launch-screensaver force
+  ;;
+-h | --help | help | "")
+  usage
+  ;;
+*)
+  usage >&2
+  exit 1
+  ;;
+esac
