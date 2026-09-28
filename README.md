@@ -7,9 +7,14 @@ Omarchy's screensaver plays a random [ttfx](https://github.com/ChrisBuilds/termi
 effect over your branding text (`~/.config/omarchy/branding/screensaver.txt`).
 This narrows that pick to the effects you choose.
 
+Requires [Omarchy](https://omarchy.org/). The installer asks for `sudo` once,
+to place the ttfx wrapper in `/usr/local/bin`.
+
 ## Install
 
 ```bash
+git clone https://github.com/giorgobiani/omarchy-screensaver-fx.git
+cd omarchy-screensaver-fx
 ./install.sh            # matrix
 ./install.sh fireworks  # or start with another effect
 ```
