@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""matrix-rain: endless Matrix digital rain for the Omarchy screensaver.
+
+ttfx's matrix effect is a one-shot: the rain builds up, then resolves into
+the branding text. This keeps raining instead. The density drifts on its own
+random schedule, building up until the screen is completely filled, then
+thinning out to a sparse drizzle and back, with random durations and peaks,
+so it never repeats like a looped video.
+
+  matrix-rain [--fps N] [--duration SECONDS] [--as-ttfx]
+
+--as-ttfx renames the process to "ttfx": the screensaver loop watches for a
+process of that name on its terminal, and kills it by that name on exit.
+Press Ctrl+C to stop when running it by hand.
+"""
+
+import argparse
+import ctypes
+import math
+import os
+import random
+import signal
+import sys
+import time
+
+# Look and pace follow ttfx's matrix effect defaults, so it matches the
+# classic effect: its symbols, its muted green gradient (185318 to 92be92)
+# with a dbffdb head, its fall speed (one row every 2-15 frames at the
+# screensaver's 120 fps) and its symbol swap chance (0.005 per tick).
+GLYPHS = "2598Z*):.\"=+-¦|_ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ"
+TTFX_FPS = 120
+FALL_DELAY = (2, 15)
+SWAP_CHANCE = 0.005
+
+
+def blend(a, b, t):
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+# Brightness levels: 0 is empty, then the trail from dim to bright, then the head.
+DARK, LIGHT, HEAD = (0x18, 0x53, 0x18), (0x92, 0xBE, 0x92), (0xDB, 0xFF, 0xDB)
+TRAIL = [blend((0x0C, 0x2A, 0x0C), DARK, 0.5)] + [blend(DARK, LIGHT, i / 7) for i in range(8)]
+COLORS = [None] + ["\x1b[38;2;%d;%d;%dm" % c for c in TRAIL + [HEAD]]
+LEVELS = len(COLORS) - 1
+
+
+# How much of the screen is lit for a given rain intensity is steep in the
+# middle. This maps the wanted fill (what Density schedules) to intensity,
+# measured on a full-screen terminal, so build-up and clearing look even.
+FILL_CURVE = [(0.0, 0.0), (0.08, 0.1), (0.16, 0.2), (0.42, 0.35), (0.66, 0.5),
+              (0.85, 0.65), (0.98, 0.8), (1.0, 1.0)]
+
+
+def intensity(fill):
+    for (f0, i0), (f1, i1) in zip(FILL_CURVE, FILL_CURVE[1:]):
+        if fill <= f1:
+            return i0 + (i1 - i0) * (fill - f0) / (f1 - f0)
+    return 1.0
+
+
+def smoothstep(t):
+    t = min(1.0, max(0.0, t))
+    return t * t * (3 - 2 * t)
+
+
+class Density:
+    """How much of the screen should be lit: a random walk between sparse
+    and completely filled.
+
+    Each leg eases from the current value to a new target over a random
+    time, then holds for a random time. Targets alternate between the dense
+    and sparse ends, with random depth, and sometimes stop halfway."""
+
+    def __init__(self, now):
+        self.value = random.uniform(0.05, 0.15)
+        self.rising = True
+        self._leg(now)
+
+    def _leg(self, now):
+        self.start_value = self.value
+        self.start = now
+        if self.rising:
+            # Mostly all the way to a filled screen, now and then only part way.
+            self.target = random.uniform(0.97, 1.0) if random.random() < 0.8 else random.uniform(0.45, 0.7)
+            self.length = random.uniform(20, 50)
+            self.hold = random.uniform(4, 18) if self.target > 0.9 else random.uniform(2, 8)
+        else:
+            self.target = random.uniform(0.02, 0.25) if random.random() < 0.8 else random.uniform(0.35, 0.5)
+            self.length = random.uniform(15, 45)
+            self.hold = random.uniform(5, 25)
+        self.rising = not self.rising
+
+    def update(self, now):
+        t = (now - self.start) / self.length
+        if t >= 1.0 + self.hold / self.length:
+            self.value = self.target
+            self._leg(now)
+            t = 0.0
+        self.value = self.start_value + (self.target - self.start_value) * smoothstep(t)
+        return self.value
+
+
+class Rain:
+    def __init__(self, fps):
+        self.fps = fps
+        # Chance per frame that a lit character changes, as often as in ttfx.
+        self.swap = 1 - (1 - SWAP_CHANCE) ** (TTFX_FPS / fps)
+        self.resize()
+
+    def resize(self):
+        size = os.get_terminal_size(sys.stdout.fileno())
+        self.cols, self.rows = size.columns, size.lines
+        self.bright = [[0.0] * self.rows for _ in range(self.cols)]
+        self.glyph = [[" "] * self.rows for _ in range(self.cols)]
+        self.shown = [[(0, " ")] * self.rows for _ in range(self.cols)]
+        # Drops per column: [y, speed]; y is the head's row, fractional.
+        self.drops = [[] for _ in range(self.cols)]
+        self.clear = True
+
+    def step(self, fill):
+        density = intensity(fill)
+        rows = self.rows
+        # Trail length follows the density: short trails with space between
+        # them when sparse, longer than the screen (so everything stays lit)
+        # when dense. Fading is shared by all cells, so a falling density
+        # clears the screen instead of waiting for old trails to run out.
+        trail = rows * (0.25 + 1.75 * density ** 1.5)
+        fade = 0.55 / trail
+        spawn = 0.004 + 0.06 * density ** 2
+        max_drops = 1 + int(3 * density)
+
+        for x in range(self.cols):
+            column = self.bright[x]
+            for y in range(rows):
+                if column[y] > 0.0:
+                    column[y] -= fade
+
+            drops = self.drops[x]
+            if len(drops) < max_drops and random.random() < spawn:
+                if not drops or min(d[0] for d in drops) > rows * 0.2:
+                    # Rows per frame at our frame rate, for ttfx's per-row delay.
+                    speed = TTFX_FPS / random.randint(*FALL_DELAY) / self.fps
+                    drops.append([random.uniform(-rows * 0.3, 0), speed])
+            keep = []
+            glyphs = self.glyph[x]
+            for drop in drops:
+                old = int(drop[0])
+                drop[0] += drop[1]
+                for y in range(max(0, old + 1), min(rows, int(drop[0]) + 1)):
+                    column[y] = 1.0
+                    glyphs[y] = random.choice(GLYPHS)
+                if drop[0] < rows + 1:
+                    keep.append(drop)
+            self.drops[x] = keep
+
+            # Lit characters keep changing, like the film: each one with
+            # ttfx's chance per tick. Sampled per column rather than per cell.
+            changes = self.swap * rows
+            while changes > 0:
+                if random.random() < changes:
+                    y = random.randrange(rows)
+                    if column[y] > 0.0:
+                        glyphs[y] = random.choice(GLYPHS)
+                changes -= 1
+
+    def frame(self):
+        out = ["\x1b[H\x1b[2J"] if self.clear else []
+        self.clear = False
+        color = None
+        for x in range(self.cols):
+            column, glyphs, shown = self.bright[x], self.glyph[x], self.shown[x]
+            for y in range(self.rows):
+                b = column[y]
+                if b >= 0.97:
+                    level = LEVELS
+                elif b > 0.0:
+                    level = 1 + int(b * (LEVELS - 1))
+                else:
+                    level = 0
+                cell = (level, glyphs[y] if level else " ")
+                if cell == shown[y]:
+                    continue
+                shown[y] = cell
+                out.append("\x1b[%d;%dH" % (y + 1, x + 1))
+                if level and COLORS[level] != color:
+                    color = COLORS[level]
+                    out.append("\x1b[0m" + color)
+                out.append(cell[1])
+        return "".join(out)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Endless Matrix digital rain.")
+    parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--duration", type=float, default=0, help="stop after this many seconds (0: never)")
+    parser.add_argument("--as-ttfx", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    if args.as_ttfx:
+        try:
+            ctypes.CDLL(None).prctl(15, b"ttfx", 0, 0, 0)   # PR_SET_NAME
+        except (OSError, AttributeError):
+            pass
+
+    out = sys.stdout.fileno()
+
+    def restore(*_):
+        os.write(out, b"\x1b[0m\x1b[?25h")
+        os._exit(0)
+
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, restore)
+
+    rain = Rain(max(1, args.fps))
+    resized = []
+    signal.signal(signal.SIGWINCH, lambda *_: resized.append(True))
+    os.write(out, b"\x1b[?25l\x1b[0m\x1b[H\x1b[2J")
+
+    start = time.monotonic()
+    density = Density(start)
+    interval = 1.0 / max(1, args.fps)
+    next_frame = start
+    while True:
+        now = time.monotonic()
+        if args.duration and now - start >= args.duration:
+            restore()
+        if resized:
+            resized.clear()
+            rain.resize()
+        rain.step(density.update(now))
+        data = rain.frame().encode()
+        while data:
+            data = data[os.write(out, data):]
+        next_frame += interval
+        delay = next_frame - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+        else:
+            next_frame = time.monotonic()
+
+
+if __name__ == "__main__":
+    main()

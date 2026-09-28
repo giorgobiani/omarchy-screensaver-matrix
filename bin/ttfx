@@ -3,17 +3,33 @@
 #
 # The Omarchy screensaver runs `ttfx --random-effect` on the branding text.
 # When this wrapper sees that call, it limits the random pick to the effects
-# chosen in ~/.config/omarchy/screensaver-fx.conf. Every other ttfx call is
-# passed straight through to the real binary.
+# chosen in ~/.config/omarchy/screensaver-fx.conf. With Matrix as the only
+# effect (and MATRIX not set to classic), it runs matrix-rain instead: endless
+# rain rather than ttfx's one-shot effect that ends on the branding text.
+# matrix-rain names itself "ttfx", so the screensaver loop keeps recognizing
+# and stopping it. Every other ttfx call is passed straight through.
 
 REAL_TTFX=/usr/bin/ttfx
 CONFIG="$HOME/.config/omarchy/screensaver-fx.conf"
 
 if [[ " $* " == *" --random-effect "* && "$*" == *"/.config/omarchy/branding/screensaver.txt"* && -r $CONFIG ]]; then
   EFFECTS=""
+  MATRIX=endless
   # shellcheck source=/dev/null
   source "$CONFIG"
   read -ra effects <<<"$EFFECTS"
+  if [[ ${#effects[@]} -eq 1 && ${effects[0]} == matrix && $MATRIX != classic && -x $HOME/.local/bin/matrix-rain ]]; then
+    # Stay alive as its parent instead of exec'ing it: the screensaver checks
+    # for a "ttfx" process right after starting this one, and matrix-rain is
+    # only called that once Python has started and renamed itself. With exec,
+    # that check could miss it and start another copy. This process is
+    # "ttfx" from its first instant.
+    "$HOME/.local/bin/matrix-rain" --as-ttfx &
+    rain=$!
+    trap 'kill "$rain" 2>/dev/null; exit 0' TERM HUP INT
+    wait "$rain"
+    exit 0
+  fi
   if ((${#effects[@]})); then
     exec "$REAL_TTFX" "$@" --include-effects "${effects[@]}"
   fi

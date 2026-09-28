@@ -14,7 +14,13 @@ Commands:
   list               List every available effect
   set <effect>...    Use only these effects (one is picked at random each cycle)
   random             Go back to Omarchy's default: any effect at random
+  matrix [endless|classic]
+                     Use only Matrix. endless (default): rain that never stops,
+                     drifting between sparse and a completely filled screen.
+                     classic: ttfx's effect, which ends on the branding text.
+                     Without an argument, show the current Matrix mode.
   is <effect>...     Exit 0 if exactly these effects are set ("is random" for the default)
+  is-matrix <mode>   Exit 0 if Matrix is the only effect and runs in this mode
   preview            Launch the screensaver now
 EOF
 }
@@ -23,13 +29,21 @@ available_effects() {
   /usr/bin/ttfx --help | awk '/^Commands:/ {on=1; next} /^$/ {on=0} on && $1 != "help" {print $1}'
 }
 
+# write_config <matrix mode> <effect>...
 write_config() {
+  local mode=$1
+  shift
   mkdir -p "$(dirname "$CONFIG")"
   cat >"$CONFIG" <<EOF
 # Effects the Omarchy screensaver picks from, space-separated.
 # Leave empty for Omarchy's default (any effect at random).
 # Manage with: screensaver-fx set <effect>... | random | list
 EFFECTS="$*"
+
+# When Matrix is the only effect: endless (rain that never stops, see
+# matrix-rain) or classic (ttfx's effect, which ends on the branding text).
+# Manage with: screensaver-fx matrix endless|classic
+MATRIX="$mode"
 EOF
 }
 
@@ -40,10 +54,21 @@ current_effects() {
   echo "$EFFECTS"
 }
 
+current_matrix_mode() {
+  local MATRIX=endless
+  # shellcheck source=/dev/null
+  [[ -r $CONFIG ]] && source "$CONFIG"
+  if [[ $MATRIX == classic ]]; then echo classic; else echo endless; fi
+}
+
 case "${1:-}" in
 show)
   effects=$(current_effects)
-  echo "${effects:-random}"
+  if [[ $effects == matrix ]]; then
+    echo "matrix ($(current_matrix_mode))"
+  else
+    echo "${effects:-random}"
+  fi
   ;;
 list)
   available_effects
@@ -55,12 +80,30 @@ set)
   for effect in "$@"; do
     grep -qx "$effect" <<<"$valid" || { echo "Unknown effect: $effect. See: screensaver-fx list" >&2; exit 1; }
   done
-  write_config "$@"
+  write_config "$(current_matrix_mode)" "$@"
   echo "Screensaver effects: $*"
   ;;
 random)
-  write_config
+  write_config "$(current_matrix_mode)"
   echo "Screensaver effects: random"
+  ;;
+matrix)
+  case "${2:-}" in
+  "")
+    current_matrix_mode
+    ;;
+  endless | classic)
+    write_config "$2" matrix
+    echo "Screensaver effects: matrix ($2)"
+    ;;
+  *)
+    echo "Matrix mode is endless or classic" >&2
+    exit 1
+    ;;
+  esac
+  ;;
+is-matrix)
+  [[ "$(current_effects)" == matrix && "$(current_matrix_mode)" == "${2:-}" ]]
   ;;
 is)
   shift

@@ -1,7 +1,8 @@
   // >>> screensaver-fx (managed by omarchy-screensaver-matrix; edits here are replaced on reinstall)
   "style.screensaver.effect": {"icon":"󱄄","label":"Effect","title":"Screensaver Effect"},
   "style.screensaver.effect.random": {"icon":"󰒝","label":"Random","description":"Omarchy default: any effect","checked":"screensaver-fx is random","action":"screensaver-fx random"},
-  "style.screensaver.effect.matrix": {"icon":"󱄄","label":"Matrix","checked":"screensaver-fx is matrix","action":"screensaver-fx set matrix"},
+  "style.screensaver.effect.matrix": {"icon":"󱄄","label":"Matrix","description":"Endless rain, sparse to full and back","checked":"screensaver-fx is-matrix endless","action":"screensaver-fx matrix endless"},
+  "style.screensaver.effect.matrix-classic": {"icon":"󱄄","label":"Matrix (classic)","description":"ttfx's effect, ends on the branding text","checked":"screensaver-fx is-matrix classic","action":"screensaver-fx matrix classic"},
   "style.screensaver.effect.rain": {"icon":"󱄄","label":"Rain","checked":"screensaver-fx is rain","action":"screensaver-fx set rain"},
   "style.screensaver.effect.decrypt": {"icon":"󱄄","label":"Decrypt","checked":"screensaver-fx is decrypt","action":"screensaver-fx set decrypt"},
   "style.screensaver.effect.beams": {"icon":"󱄄","label":"Beams","checked":"screensaver-fx is beams","action":"screensaver-fx set beams"},

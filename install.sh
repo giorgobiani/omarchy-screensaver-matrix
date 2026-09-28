@@ -10,6 +10,7 @@ MENU="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 # PATH entry ahead of /usr/bin that the screensaver sees and updates never touch.
 sudo install -Dm755 bin/ttfx /usr/local/bin/ttfx
 install -Dm755 bin/screensaver-fx "$HOME/.local/bin/screensaver-fx"
+install -Dm755 bin/matrix-rain "$HOME/.local/bin/matrix-rain"
 
 # Keep an existing choice on reinstall
 if [[ ! -f $HOME/.config/omarchy/screensaver-fx.conf ]]; then
