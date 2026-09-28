@@ -21,6 +21,9 @@ Commands:
                      Without an argument, show the current Matrix mode.
   is <effect>...     Exit 0 if exactly these effects are set ("is random" for the default)
   is-matrix <mode>   Exit 0 if Matrix is the only effect and runs in this mode
+  matrix-speed [factor]
+                     Fall speed of the endless rain: 1.0 is ttfx's pace, lower
+                     is slower (default 0.8). Without an argument, show it.
   preview            Launch the screensaver now
 EOF
 }
@@ -31,8 +34,10 @@ available_effects() {
 
 # write_config <matrix mode> <effect>...
 write_config() {
-  local mode=$1
+  local mode=$1 speed
   shift
+  # Read before the file is truncated below.
+  speed=$(current_matrix_speed)
   mkdir -p "$(dirname "$CONFIG")"
   cat >"$CONFIG" <<EOF
 # Effects the Omarchy screensaver picks from, space-separated.
@@ -44,6 +49,10 @@ EFFECTS="$*"
 # matrix-rain) or classic (ttfx's effect, which ends on the branding text).
 # Manage with: screensaver-fx matrix endless|classic
 MATRIX="$mode"
+
+# Fall speed of the endless rain: 1.0 is ttfx's pace (default 0.8).
+# Manage with: screensaver-fx matrix-speed <factor>
+MATRIX_SPEED="$speed"
 EOF
 }
 
@@ -52,6 +61,13 @@ current_effects() {
   # shellcheck source=/dev/null
   [[ -r $CONFIG ]] && source "$CONFIG"
   echo "$EFFECTS"
+}
+
+current_matrix_speed() {
+  local MATRIX_SPEED=""
+  # shellcheck source=/dev/null
+  [[ -r $CONFIG ]] && source "$CONFIG"
+  echo "${MATRIX_SPEED:-0.8}"
 }
 
 current_matrix_mode() {
@@ -101,6 +117,22 @@ matrix)
     exit 1
     ;;
   esac
+  ;;
+matrix-speed)
+  if [[ -z ${2:-} ]]; then
+    current_matrix_speed
+  elif [[ $2 =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$2" 'BEGIN { exit !(v >= 0.1 && v <= 3) }'; then
+    effects=$(current_effects)
+    # write_config reads the speed back from the file, so set it there first.
+    sed -i '/^MATRIX_SPEED=/d' "$CONFIG" 2>/dev/null || true
+    echo "MATRIX_SPEED=\"$2\"" >>"$CONFIG"
+    read -ra list <<<"$effects"
+    write_config "$(current_matrix_mode)" "${list[@]}"
+    echo "Matrix rain speed: $2"
+  else
+    echo "Speed is a number from 0.1 to 3 (1.0 is ttfx's pace)" >&2
+    exit 1
+  fi
   ;;
 is-matrix)
   [[ "$(current_effects)" == matrix && "$(current_matrix_mode)" == "${2:-}" ]]

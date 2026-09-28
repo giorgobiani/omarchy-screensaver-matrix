@@ -21,9 +21,10 @@ stops. The density drifts on a random schedule:
 - peaks and lows vary: most build-ups fill the screen, some stop halfway
 - characters in the trails keep changing, like in the film
 
-So it never looks like a looped video. The look and pace match the classic
-effect: ttfx's symbols, its muted green colours and white-green heads, its fall
-speed and how often characters change. It uses about a tenth of one CPU core.
+So it never looks like a looped video. The look matches the classic effect:
+ttfx's symbols, its muted green colours and white-green heads, and how often
+characters change. It falls 20% slower than ttfx by default, which you can
+change (see below). It uses about a tenth of one CPU core.
 
 Prefer the original, ending on your branding text? Pick **Matrix (classic)**.
 
@@ -51,6 +52,7 @@ Style → Screensaver → Preview. **Matrix** is the endless rain, **Matrix
 screensaver-fx list                    # all effects
 screensaver-fx matrix endless          # only matrix, endless rain (default)
 screensaver-fx matrix classic          # only matrix, ttfx's effect ending on the branding text
+screensaver-fx matrix-speed 0.9        # endless rain speed: 1.0 is ttfx's pace, lower is slower (default 0.8)
 screensaver-fx set matrix rain beams   # random pick from these (matrix is the classic one here)
 screensaver-fx random                  # Omarchy default
 screensaver-fx show
@@ -66,7 +68,7 @@ effects, each one has to end so the next can play.
 You can also run the rain on its own in any terminal, `Ctrl+C` to stop:
 
 ```bash
-matrix-rain                 # --fps N to change the frame rate (default 30)
+matrix-rain                 # --speed 0.8 (fall speed), --fps N (frame rate, default 30)
 ```
 
 ## Uninstall

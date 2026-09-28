@@ -7,7 +7,11 @@ random schedule, building up until the screen is completely filled, then
 thinning out to a sparse drizzle and back, with random durations and peaks,
 so it never repeats like a looped video.
 
-  matrix-rain [--fps N] [--duration SECONDS] [--as-ttfx]
+  matrix-rain [--speed FACTOR] [--fps N] [--duration SECONDS] [--as-ttfx]
+
+--speed scales how fast the rain falls (default 0.8, a little slower than
+ttfx; 1.0 is ttfx's pace). The screensaver passes MATRIX_SPEED from
+~/.config/omarchy/screensaver-fx.conf.
 
 --as-ttfx renames the process to "ttfx": the screensaver loop watches for a
 process of that name on its terminal, and kills it by that name on exit.
@@ -101,8 +105,11 @@ class Density:
 
 
 class Rain:
-    def __init__(self, fps):
+    def __init__(self, fps, speed=1.0):
         self.fps = fps
+        # Slower rain: drops fall slower, and trails fade and new drops start
+        # at the same slower pace, so the screen fills just as much.
+        self.speed = speed
         # Chance per frame that a lit character changes, as often as in ttfx.
         self.swap = 1 - (1 - SWAP_CHANCE) ** (TTFX_FPS / fps)
         self.resize()
@@ -125,8 +132,8 @@ class Rain:
         # when dense. Fading is shared by all cells, so a falling density
         # clears the screen instead of waiting for old trails to run out.
         trail = rows * (0.25 + 1.75 * density ** 1.5)
-        fade = 0.55 / trail
-        spawn = 0.004 + 0.06 * density ** 2
+        fade = 0.55 / trail * self.speed
+        spawn = (0.004 + 0.06 * density ** 2) * self.speed
         max_drops = 1 + int(3 * density)
 
         for x in range(self.cols):
@@ -139,7 +146,7 @@ class Rain:
             if len(drops) < max_drops and random.random() < spawn:
                 if not drops or min(d[0] for d in drops) > rows * 0.2:
                     # Rows per frame at our frame rate, for ttfx's per-row delay.
-                    speed = TTFX_FPS / random.randint(*FALL_DELAY) / self.fps
+                    speed = TTFX_FPS / random.randint(*FALL_DELAY) / self.fps * self.speed
                     drops.append([random.uniform(-rows * 0.3, 0), speed])
             keep = []
             glyphs = self.glyph[x]
@@ -191,6 +198,7 @@ class Rain:
 
 def main():
     parser = argparse.ArgumentParser(description="Endless Matrix digital rain.")
+    parser.add_argument("--speed", type=float, default=0.8, help="fall speed, 1.0 is ttfx's pace (default 0.8)")
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--duration", type=float, default=0, help="stop after this many seconds (0: never)")
     parser.add_argument("--as-ttfx", action="store_true", help=argparse.SUPPRESS)
@@ -211,7 +219,7 @@ def main():
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, restore)
 
-    rain = Rain(max(1, args.fps))
+    rain = Rain(max(1, args.fps), min(3.0, max(0.1, args.speed)))
     resized = []
     signal.signal(signal.SIGWINCH, lambda *_: resized.append(True))
     os.write(out, b"\x1b[?25l\x1b[0m\x1b[H\x1b[2J")

@@ -15,6 +15,7 @@ CONFIG="$HOME/.config/omarchy/screensaver-fx.conf"
 if [[ " $* " == *" --random-effect "* && "$*" == *"/.config/omarchy/branding/screensaver.txt"* && -r $CONFIG ]]; then
   EFFECTS=""
   MATRIX=endless
+  MATRIX_SPEED=""
   # shellcheck source=/dev/null
   source "$CONFIG"
   read -ra effects <<<"$EFFECTS"
@@ -24,7 +25,7 @@ if [[ " $* " == *" --random-effect "* && "$*" == *"/.config/omarchy/branding/scr
     # only called that once Python has started and renamed itself. With exec,
     # that check could miss it and start another copy. This process is
     # "ttfx" from its first instant.
-    "$HOME/.local/bin/matrix-rain" --as-ttfx &
+    "$HOME/.local/bin/matrix-rain" --as-ttfx ${MATRIX_SPEED:+--speed "$MATRIX_SPEED"} &
     rain=$!
     trap 'kill "$rain" 2>/dev/null; exit 0' TERM HUP INT
     wait "$rain"
