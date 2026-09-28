@@ -1,4 +1,4 @@
-  // >>> screensaver-fx (managed by omarchy-screensaver-fx; edits here are replaced on reinstall)
+  // >>> screensaver-fx (managed by omarchy-screensaver-matrix; edits here are replaced on reinstall)
   "style.screensaver.effect": {"icon":"󱄄","label":"Effect","title":"Screensaver Effect"},
   "style.screensaver.effect.random": {"icon":"󰒝","label":"Random","description":"Omarchy default: any effect","checked":"screensaver-fx is random","action":"screensaver-fx random"},
   "style.screensaver.effect.matrix": {"icon":"󱄄","label":"Matrix","checked":"screensaver-fx is matrix","action":"screensaver-fx set matrix"},

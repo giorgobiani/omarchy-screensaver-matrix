@@ -1,4 +1,4 @@
-# omarchy-screensaver-fx
+# omarchy-screensaver-matrix
 
 Choose which effect the Omarchy screensaver shows, from the Omarchy menu or
 the command line. Defaults to the Matrix digital rain.
@@ -13,8 +13,8 @@ to place the ttfx wrapper in `/usr/local/bin`.
 ## Install
 
 ```bash
-git clone https://github.com/giorgobiani/omarchy-screensaver-fx.git
-cd omarchy-screensaver-fx
+git clone https://github.com/giorgobiani/omarchy-screensaver-matrix.git
+cd omarchy-screensaver-matrix
 ./install.sh            # matrix
 ./install.sh fireworks  # or start with another effect
 ```
